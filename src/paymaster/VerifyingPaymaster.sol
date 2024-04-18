@@ -17,7 +17,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * - the account checks a signature to prove identity and account ownership.
  */
 contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
-
     using UserOperationLib for UserOperation;
 
     address public immutable verifyingSigner;
@@ -28,17 +27,37 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
     uint256 private constant POSTOP_OVERHEAD_PERCENTAGE = 5; //  5% overhead
 
     mapping(bytes32 => uint256) private balances;
-    mapping(bytes32 => mapping(address => uint256)) public paymasterIdToUserToBalance;
+    mapping(bytes32 => mapping(address => uint256))
+        public paymasterIdToUserToBalance;
 
-    event Withdrawal(address indexed user, bytes32 indexed paymasterId, uint256 amount);
-    event Deposit(address indexed user, bytes32 indexed paymasterId, uint256 amount);
+    event Withdrawal(
+        address indexed user,
+        bytes32 indexed paymasterId,
+        uint256 amount
+    );
+    event Deposit(
+        address indexed user,
+        bytes32 indexed paymasterId,
+        uint256 amount
+    );
     event BalanceDeducted(bytes32 indexed paymasterId, uint256 amount);
 
-
-    constructor(IEntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) Ownable() {
-        require(address(_entryPoint).code.length > 0, "Paymaster: passed _entryPoint is not currently a contract");
-        require(_verifyingSigner != address(0), "Paymaster: verifyingSigner cannot be address(0)");
-        require(_verifyingSigner != msg.sender, "Paymaster: verifyingSigner cannot be the owner");
+    constructor(
+        IEntryPoint _entryPoint,
+        address _verifyingSigner
+    ) BasePaymaster(_entryPoint) Ownable() {
+        require(
+            address(_entryPoint).code.length > 0,
+            "Paymaster: passed _entryPoint is not currently a contract"
+        );
+        require(
+            _verifyingSigner != address(0),
+            "Paymaster: verifyingSigner cannot be address(0)"
+        );
+        require(
+            _verifyingSigner != msg.sender,
+            "Paymaster: verifyingSigner cannot be the owner"
+        );
         verifyingSigner = _verifyingSigner;
     }
 
@@ -49,8 +68,12 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
      * note that this signature covers all fields of the UserOperation, except the "paymasterAndData",
      * which will carry the signature itself.
      */
-    function getHash(UserOperation calldata userOp, uint48 validUntil, uint48 validAfter, bytes32 paymasterId)
-    public view returns (bytes32) {
+    function getHash(
+        UserOperation calldata userOp,
+        uint48 validUntil,
+        uint48 validAfter,
+        bytes32 paymasterId
+    ) public view returns (bytes32) {
         // can't use userOp.hash(), since it contains also the paymasterAndData itself.
         // return keccak256(
         //     abi.encode(
@@ -70,7 +93,7 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
         //         validAfter
         //     )
         // );
-        
+
         bytes memory firstHalf = abi.encode(
             userOp.getSender(),
             userOp.nonce,
@@ -103,12 +126,30 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
      * paymasterAndData[20:84] : abi.encode(validUntil, validAfter)
      * paymasterAndData[84:] : signature
      */
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 /*requiredPreFund*/)
-    internal view override returns (bytes memory context, uint256 validationData) {
-        (uint48 validUntil, uint48 validAfter, bytes calldata signature, bytes32 paymasterId) = parsePaymasterAndData(userOp.paymasterAndData);
+    function _validatePaymasterUserOp(
+        UserOperation calldata userOp,
+        bytes32 /*userOpHash*/,
+        uint256 /*requiredPreFund*/
+    )
+        internal
+        view
+        override
+        returns (bytes memory context, uint256 validationData)
+    {
+        (
+            uint48 validUntil,
+            uint48 validAfter,
+            bytes calldata signature,
+            bytes32 paymasterId
+        ) = parsePaymasterAndData(userOp.paymasterAndData);
         // Only support 65-byte signatures, to avoid potential replay attacks.
-        require(signature.length == 65, "Paymaster: invalid signature length in paymasterAndData");
-        bytes32 hash = ECDSA.toEthSignedMessageHash(getHash(userOp, validUntil, validAfter, paymasterId));
+        require(
+            signature.length == 65,
+            "Paymaster: invalid signature length in paymasterAndData"
+        );
+        bytes32 hash = ECDSA.toEthSignedMessageHash(
+            getHash(userOp, validUntil, validAfter, paymasterId)
+        );
 
         context = abi.encode(paymasterId);
 
@@ -120,7 +161,6 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
         // no need for other on-chain validation: entire UserOp should have been checked
         // by the external service prior to signing it.
         return (context, _packValidationData(false, validUntil, validAfter));
-
     }
 
     function _postOp(
@@ -131,24 +171,42 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
         bytes32 paymasterId = abi.decode(context, (bytes32));
         uint256 overhead = (actualGasCost * POSTOP_OVERHEAD_PERCENTAGE) / 100;
         uint256 totalDeduction = actualGasCost + overhead;
-        require(balances[paymasterId] >= totalDeduction, "Paymaster: Insufficient balance");
+        require(
+            balances[paymasterId] >= totalDeduction,
+            "Paymaster: Insufficient balance"
+        );
         balances[paymasterId] -= totalDeduction;
         emit BalanceDeducted(paymasterId, totalDeduction);
     }
 
-    function parsePaymasterAndData(bytes calldata paymasterAndData)
-        internal pure returns(uint48 validUntil, uint48 validAfter, bytes calldata signature, bytes32 paymasterId) {
+    function parsePaymasterAndData(
+        bytes calldata paymasterAndData
+    )
+        internal
+        pure
+        returns (
+            uint48 validUntil,
+            uint48 validAfter,
+            bytes calldata signature,
+            bytes32 paymasterId
+        )
+    {
         // Extracting paymasterId from the start of paymasterAndData
-        paymasterId = bytes32(paymasterAndData[VALID_PAYMASTER_ID_OFFSET:VALID_TIMESTAMP_OFFSET]);
+        paymasterId = bytes32(
+            paymasterAndData[VALID_PAYMASTER_ID_OFFSET:VALID_TIMESTAMP_OFFSET]
+        );
 
         // Extracting validUntil and validAfter, assuming they follow paymasterId
-        (validUntil, validAfter) = abi.decode(paymasterAndData[VALID_TIMESTAMP_OFFSET:SIGNATURE_OFFSET], (uint48, uint48));
-        
+        (validUntil, validAfter) = abi.decode(
+            paymasterAndData[VALID_TIMESTAMP_OFFSET:SIGNATURE_OFFSET],
+            (uint48, uint48)
+        );
+
         // Extracting signature, assuming it follows validUntil and validAfter
         signature = paymasterAndData[SIGNATURE_OFFSET:];
     }
 
-    function depositTo(bytes32 paymasterId) public payable nonReentrant{
+    function depositTo(bytes32 paymasterId) public payable nonReentrant {
         require(msg.value > 0, "Deposit amount must be greater than 0");
         paymasterIdToUserToBalance[paymasterId][msg.sender] += msg.value;
         balances[paymasterId] += msg.value;
@@ -160,10 +218,17 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
         revert("use depositTo");
     }
 
-    function withdraw(bytes32 paymasterId, address payable withdrawAddress, uint256 amount) public nonReentrant {
+    function withdraw(
+        bytes32 paymasterId,
+        address payable withdrawAddress,
+        uint256 amount
+    ) public nonReentrant {
         require(withdrawAddress != address(0), "invalid address");
         require(balances[paymasterId] >= amount, "Insufficient balance");
-        require(paymasterIdToUserToBalance[paymasterId][msg.sender] >= amount, "Insufficient user balance");
+        require(
+            paymasterIdToUserToBalance[paymasterId][msg.sender] >= amount,
+            "Insufficient user balance"
+        );
 
         paymasterIdToUserToBalance[paymasterId][msg.sender] -= amount;
         balances[paymasterId] -= amount;
@@ -175,26 +240,34 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
         return balances[paymasterId];
     }
 
-    function getBalanceByUser(bytes32 paymasterId, address user) public view returns (uint256) {
+    function getBalanceByUser(
+        bytes32 paymasterId,
+        address user
+    ) public view returns (uint256) {
         return paymasterIdToUserToBalance[paymasterId][user];
     }
 
-
-    function renounceOwnership() public override view onlyOwner {
+    function renounceOwnership() public view override onlyOwner {
         revert("Paymaster: renouncing ownership is not allowed");
     }
 
     function transferOwnership(address newOwner) public override onlyOwner {
-        require(newOwner != address(0), "Paymaster: owner cannot be address(0)");
-        require(newOwner != verifyingSigner, "Paymaster: owner cannot be the verifyingSigner");
+        require(
+            newOwner != address(0),
+            "Paymaster: owner cannot be address(0)"
+        );
+        require(
+            newOwner != verifyingSigner,
+            "Paymaster: owner cannot be the verifyingSigner"
+        );
         _transferOwnership(newOwner);
     }
 
     receive() external payable {
         // use address(this).balance rather than msg.value in case of force-send
-        (bool callSuccess, ) = payable(address(entryPoint)).call{value: address(this).balance}("");
+        (bool callSuccess, ) = payable(address(entryPoint)).call{
+            value: address(this).balance
+        }("");
         require(callSuccess, "Deposit failed");
     }
-
-
 }
