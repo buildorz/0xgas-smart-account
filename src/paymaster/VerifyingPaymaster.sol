@@ -6,6 +6,7 @@ pragma solidity ^0.8.0;
 import "account-abstraction/core/BasePaymaster.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {UserOperation} from "account-abstraction/interfaces/UserOperation.sol";
 
 /**
  * A paymaster that uses external service to decide whether to pay for the UserOp.
@@ -45,7 +46,7 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
     constructor(
         IEntryPoint _entryPoint,
         address _verifyingSigner
-    ) BasePaymaster(_entryPoint) Ownable() {
+    ) BasePaymaster(_entryPoint) {
         require(
             address(_entryPoint).code.length > 0,
             "Paymaster: passed _entryPoint is not currently a contract"
@@ -95,7 +96,7 @@ contract VerifyingPaymaster is BasePaymaster, ReentrancyGuard {
         // );
 
         bytes memory firstHalf = abi.encode(
-            userOp.getSender(),
+            userOp.sender,
             userOp.nonce,
             calldataKeccak(userOp.initCode),
             calldataKeccak(userOp.callData),

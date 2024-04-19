@@ -14,7 +14,7 @@ import "forge-std/console.sol";
 // usdc/usd: 0x572dDec9087154dC5dfBB1546Bb62713147e0Ab0
 
 contract DeployERC20Paymaster is Script {
-    address constant DEPLOYER = 0x715F45c4Fe4F72Cb75D6de2F36D0428923a70946;
+    address constant DEPLOYER = 0x72916f12327309b0c994C77e343F8dBB1A89a617;
     address constant ENTRYPOINT_0_6 = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
     function run() public {
         uint256 key = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -22,10 +22,10 @@ contract DeployERC20Paymaster is Script {
 
         // To deploy new paymaster
         ERC20Paymaster paymaster = new ERC20Paymaster{salt:"0x31"}(
-            IERC20Metadata(0x9999f7Fea5938fD3b1E26A12c3f2fb024e194f97), //goerli:0x07865c6E87B9F70255377e024ace6630C1Eaa37F , mumbai: 0x9999f7fea5938fd3b1e26a12c3f2fb024e194f97
+            IERC20Metadata(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913), //goerli:0x07865c6E87B9F70255377e024ace6630C1Eaa37F , mumbai: 0x9999f7fea5938fd3b1e26a12c3f2fb024e194f97
             IEntryPoint(ENTRYPOINT_0_6), 
-            AggregatorV3Interface(0x572dDec9087154dC5dfBB1546Bb62713147e0Ab0),  // token oracle
-            AggregatorV3Interface(0xd0D5e3DB44DE05E9F294BB0a3bEEaF030DE24Ada),  // native oracle
+            AggregatorV3Interface(0x7e860098F58bBFC8648a4311b374B1D669a2bc6B),  // token oracle
+            AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70),  // native oracle
             DEPLOYER
         );
         console.log("erc20 paymaster address: %s", address(paymaster));
