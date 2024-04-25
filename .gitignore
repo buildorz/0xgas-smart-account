@@ -33,3 +33,4 @@ artifacts-selected
 cache_hardhat
 
 lcov.info
+.vscode/settings.json
